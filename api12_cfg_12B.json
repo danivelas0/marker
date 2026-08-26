@@ -1,0 +1,14 @@
+{
+  "standard": "API 12B",
+  "edition": "17th Ed., December 2020 (Errata 1, November 2024)",
+  "edition_detail": "API SPECIFICATION 12B SEVENTEENTH EDITION, DECEMBER 2020; API MONOGRAM PROGRAM EFFECTIVE DATE: JUNE 2021; ERRATA 1, NOVEMBER 2024",
+  "supplied_as": "SPEC_12B_E17_EN_wE1.pdf",
+  "raw_json": "C:/Users/DVELAS~1/AppData/Local/Temp/claude/C--Users-dvelasquez-Documents-marker/f3171e7b-b923-42fe-bea3-d6d24a991790/scratchpad/api12_raw/API12B/SPEC_12B_E17_EN_wE1/SPEC_12B_E17_EN_wE1.json",
+  "manifest": "C:/Users/dvelasquez/Documents/marker/conversion_results/API 12B/figures/manifest.json",
+  "dest": "C:/Users/dvelasquez/Documents/Engineering_Hub/database/api_12b",
+  "tech_range": [8, 29],
+  "clause_notes": {
+    "Section 7": "Printed '7 Marking' by the document itself, immediately after Section '8 Inspection' rather than before it \u2014 8's own sub-clauses are likewise printed '8.1 Notice' then '6.1 Inspection by purchaser' and '6.2 Compliance' (not 8.2/8.3). The same out-of-sequence numbers appear independently in this document's own Contents page ('8 Inspection ... 6.1 Inspection by purchaser ... 6.2 Compliance ... 7 Marking'), so this is the standard's own printed numbering, not a transcription artefact \u2014 kept as printed rather than renumbered into sequence.",
+    "Appendix (unlettered)": "Printed as a bare '(informative)' heading followed by 'Suggestions for Ordering Tanks', with no 'Annex X' letter \u2014 unlike API 12D's and API 12F's parallel informative ordering-guidance annex, which are lettered. Filed as an unlettered appendix rather than assigned a letter the document itself does not print."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "standard": "API 12P",
+  "edition": "5th Ed., May 2022",
+  "edition_detail": "API SPECIFICATION 12P FIFTH EDITION, MAY 2022; EFFECTIVE DATE: NOVEMBER 1, 2022",
+  "supplied_as": "12P_e5.pdf",
+  "raw_json": "C:/Users/DVELAS~1/AppData/Local/Temp/claude/C--Users-dvelasquez-Documents-marker/f3171e7b-b923-42fe-bea3-d6d24a991790/scratchpad/api12_raw/API12P/12P_e5/12P_e5.json",
+  "manifest": "C:/Users/dvelasquez/Documents/marker/conversion_results/API 12P/figures/manifest.json",
+  "dest": "C:/Users/dvelasquez/Documents/Engineering_Hub/database/api_12p",
+  "tech_range": [7, 28],
+  "clause_notes": {
+    "Annex A": "This annex's own text says its content 'has been intentionally removed' and points to API Q1 Annex A / the API website instead \u2014 that redirect notice is the entirety of what the document prints here, transcribed as printed rather than omitted, matching how 'Table 1.1 deleted' is kept as printed in the API 650 Section 1 file."
+  }
+}

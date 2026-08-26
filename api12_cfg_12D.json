@@ -1,0 +1,14 @@
+{
+  "standard": "API 12D",
+  "edition": "13th Ed., May 2025",
+  "edition_detail": "API SPECIFICATION 12D THIRTEENTH EDITION, MAY 2025; API MONOGRAM PROGRAM EFFECTIVE DATE: NOVEMBER 2, 2025",
+  "supplied_as": "SPEC_12D_E13_EN_updated.pdf",
+  "raw_json": "C:/Users/DVELAS~1/AppData/Local/Temp/claude/C--Users-dvelasquez-Documents-marker/f3171e7b-b923-42fe-bea3-d6d24a991790/scratchpad/api12_raw/API12D/SPEC_12D_E13_EN_updated/SPEC_12D_E13_EN_updated.json",
+  "manifest": "C:/Users/dvelasquez/Documents/marker/conversion_results/API 12D/figures/manifest.json",
+  "dest": "C:/Users/dvelasquez/Documents/Engineering_Hub/database/api_12d",
+  "tech_range": [11, 32],
+  "clause_notes": {
+    "Annex A": "This annex's own text says its content 'has been intentionally removed' and points to API Q1 Annex A / the API website instead \u2014 that redirect notice is the entirety of what the document prints here, transcribed as printed rather than omitted, matching how 'Table 1.1 deleted' is kept as printed in the API 650 Section 1 file.",
+    "Annex C": "Purely administrative \u2014 a table of past edition dates and supplements, not a design or construction requirement \u2014 but filed like every other annex this document prints, since this repository's api_650/620/625 filing convention lands every supplied annex rather than screening by whether a human judges it 'technical'."
+  }
+}
