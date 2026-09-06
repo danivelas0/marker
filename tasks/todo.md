@@ -1,6 +1,6 @@
 # Task: Extract ASME B31.3-2024 Appendices A, B, C to JSON
 
-**Source:** `OneDrive - INSPECTRA SA\...\B31- PRESSURE PIPING\ASME B31.3 2024 Process Piping.pdf`
+**Source:** `(local)\...\B31- PRESSURE PIPING\ASME B31.3 2024 Process Piping.pdf`
 **Destination:** `C:\Users\User\Google Drive Streaming\My Drive\DANIEL\Cloude\ASME PCC\resources`
 **Scope:** technical content only — no icons, trademarks, watermarks, front/back matter.
 
@@ -103,7 +103,7 @@ numbered), notes for A-4/A-4C (6 + 18).
 
 # Task 2: ASME BPVC Section II Part D (Metric) 2025
 
-Source: `OneDrive - INSPECTRA SA\...\BPVC\SECCION II\D Metric 2025 .pdf` (14.6 MB)
+Source: `(local)\...\BPVC\SECCION II\D Metric 2025 .pdf` (14.6 MB)
 Destination: same resources folder.
 
 - [x] Map document structure and table inventory (1,537 pages)
@@ -235,3 +235,80 @@ table** beneath the graph (251 rows) — the Smt / St / stress-rupture / isochro
 | BPVC II-D Appendices | 139 | 36,867 words + 763 rows + 90 PNG |
 
 Not extracted: nothing remaining in either document beyond publisher front/back matter.
+
+---
+
+# Task 4: ASME BPVC Section II Part D (U.S. Customary) 2025
+
+Source: `(local)\...\BPVC\SECCION II\D Customary 2025 .pdf` (19.1 MB, 1,533 pages)
+Destination: `.../resources/bpvc_ii_d_customary_2025/` — same rules as the Metric run.
+
+- [x] Re-point the extractor at the Customary PDF and re-derive every page range
+- [x] Subpart 1 + 2 tables, with the "NOTES TO TABLE x" documents
+- [x] Subpart 3 charts (figures + tabular values)
+- [x] Mandatory + Nonmandatory appendix prose, tables and figures
+- [x] Validate and write JSON
+
+## What had to change from the Metric run
+
+The pipeline is the same; five document facts differ.
+
+1. **Every page index.** Running head is `ASME BPVC.II.D.C-2025`; ranges re-derived from
+   the bookmark tree and confirmed by a masthead scan (Subpart 2 starts idx 1200,
+   Subpart 3 idx 1241, appendices idx 1371–1528).
+2. **Thousands separators and an en-dash exponent sign** appear in the chart tables
+   (`3,000`, `0.184 –01`); neither occurs in the Metric edition.
+3. **The B column unit is not constant.** 74 chart sheets print `B, psi`, NFN-26 and
+   NFN-27 print `B, ksi`. The unit is now read off each sheet and drives the field name
+   (`b_psi` / `b_ksi`), recorded as `value_field` in every chart file and in the index.
+4. **Figure G has tabular values in this edition** (the Metric edition prints none), and
+   it is a geometric chart: `Do/t` indexes the curve, each point is `{l_over_do, a}` with
+   no stress column. 77 chart tables here vs 76 in Metric.
+5. **Table PRD density is `lb/in.3`**, so the field is `density_lb_in3`.
+
+Two extraction rules were tightened, and they are improvements over the Metric run rather
+than Customary-specific:
+
+- The under-figure data tables of the design-fatigue figures key on the number of
+  allowable cycles, printed as `Nd [Note (1)]` — the old header test only knew
+  Temp/Time/Strain, so **E-100.16-1..5 were being missed**. E-100.16-5 is also only two
+  columns wide, accepted now only when a numeric column of that width follows it.
+  Result: 23 figures carry data (Metric run found 19; **4 of those 5 are missing from the
+  Metric output and should be backfilled**).
+- Figure G is printed over two sheets, so a chart file now carries `figure_images` as
+  well as `figure_image` rather than pointing at a PNG that was never rendered.
+
+## Review — BPVC II-D Customary (measured)
+
+**361 files, 62.6 MB** (192 JSON + 169 PNG).
+
+| Set | Files | Content |
+|---|---|---|
+| Subparts 1–2 | 42 | 12,340 rows + 14 notes documents |
+| Subpart 3 | 157 | 77 chart tables, 341 curves, 3,814 points + 79 PNG |
+| Appendices | 162 | 131 sections / 36,424 words, 35 tables (485 rows), 90 PNG, 23 figure-data tables (301 rows) |
+
+### Verification performed
+
+- **Line-number continuity: 0 problems.** Every page-group block of all 14 spread tables
+  runs 1..N with no gaps or duplicates.
+- **0 residual ellipsis-only strings** across all 192 JSON files (they are `null`).
+- **Spot-checks:** SA-516 Gr 70 in Table 1A gives S = 20.0 ksi at 100°F and 18.1 ksi at
+  700°F; Chart CS-1 starts at A = 1e-05, B = 145 psi (= the Metric edition's 1.0 MPa);
+  Table PRD carbon steel ν = 0.30, ρ = 0.28 lb/in.3.
+- **B never decreases** on any of the 341 curves; A is non-decreasing everywhere, the only
+  exceptions being 2 legitimately repeated end points (NFN-15 at 600°F and 800°F).
+- **One source typo**, recorded in `source_anomalies` and flagged on the point itself:
+  Table NFN-27 at 200°F prints its fourth A as `1.30 −0.3`. An exponent is an integer and
+  the surrounding sequence (9.50e-04 → 2.20e-03) fixes it as `−03`; read that way, because
+  dropping the cell would have silently rescaled the rest of that curve by 10.
+- **Row-count differences against the Metric set are real, not losses.** Checked
+  material-by-material: Table U 2,433 vs 2,484 is mostly SA-231/SA-232 spring wire, where
+  the editions list different diameter breakpoints (16 inch sizes vs 31 mm sizes); the
+  TE/TCD tables differ because the °F and °C temperature grids have different row counts.
+  Tables 1A, 1B, 2B, 3, 4, 5A, 5B, 6A, 6B, 6D, PRD, TM-1..5 and Y-2 match exactly.
+- **0 dangling file references:** every `figure_image`, `figure_images` and `data_file`
+  named in the three index files resolves to a rendered PNG or JSON on disk.
+
+Not extracted: publisher front/back matter and the ENDNOTES page (idx 1530), matching the
+Metric run's scope.
