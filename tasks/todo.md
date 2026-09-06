@@ -473,6 +473,14 @@ manifest are byte-identical to before (verified by comparison against a pre-run 
   a portrait sheet, so the clip is computed in unrotated page space and the rotation
   reapplied at render time), and Figure H301-1 renders all four example illustrations.
 
+### Where the extractor lives
+
+`.../ASME PCC/tools/b31_3_appendix_extractor/` - eight modules plus a readme, kept next to the
+resources rather than in this repo so it does not mix with the upstream marker code. The
+readme records the five source facts the design depends on and the traps that cost real data
+during the run, because two of them (the folio filter, the fraction bars) delete content
+silently rather than failing.
+
 Not extracted: the INDEX and NOTES FOR INDEX (pp. 574-594), which are back matter, and
 publisher front matter - matching the scope of the A/B/C run. No page furniture, change
 markers, logos or watermarks appear in any output; the source has no raster images at all in
