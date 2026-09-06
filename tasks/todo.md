@@ -485,3 +485,277 @@ Not extracted: the INDEX and NOTES FOR INDEX (pp. 574-594), which are back matte
 publisher front matter - matching the scope of the A/B/C run. No page furniture, change
 markers, logos or watermarks appear in any output; the source has no raster images at all in
 this range, so nothing decorative could be picked up.
+
+---
+
+# Task 6: ASME B31.3-2024 — the body of the Code (Chapters I–X)
+
+**Source:** `(local)\...\B31- PRESSURE PIPING\ASME B31.3 2024 Process Piping.pdf`
+**Destination:** `.../resources/ASME B31/ASME B31.3/CHAPTERS/` — sibling of the existing
+`APPEX/`, which is **not** touched or re-extracted.
+**Scope:** PDF idx 33–196 only. Nothing before Chapter I (Contents, Foreword, Roster,
+Correspondence, Introduction, Summary of Changes and the redesignation list are all front
+matter, excluded by the user's decision). INDEX/back matter already out of scope.
+
+## Decisions (confirmed with user)
+
+- Start at idx 33; nothing earlier.
+- One JSON per chapter, nested section tree keyed on the printed paragraph number.
+- Output to `CHAPTERS/` beside `APPEX/`; the APPEX manifest stays byte-identical.
+
+## Chapter ranges (from the bookmark tree)
+
+| Ch | idx | pg | Title |
+|---|---|---|---|
+| I | 33–42 | 10 | Scope and Definitions |
+| II | 43–81 | 39 | Design |
+| III | 82–93 | 12 | Materials |
+| IV | 94–97 | 4 | Standards for Piping Components |
+| V | 98–116 | 19 | Fabrication, Assembly, and Erection |
+| VI | 117–130 | 14 | Inspection, Examination, and Testing |
+| VII | 131–152 | 22 | Nonmetallic Piping and Piping Lined With Nonmetals |
+| VIII | 153–160 | 8 | Piping for Category M Fluid Service |
+| IX | 161–188 | 28 | High Pressure Piping |
+| X | 189–196 | 8 | High Purity Piping |
+
+## Steps
+
+- [x] Rename the tool package `b31_3_appendix_extractor` -> `b31_3_extractor`; readme updated
+- [x] Probe: do the rotated pages (52, 53, 58, 59, 120, 121, 122) work through the existing
+      rule-grid table engine, and in which coordinate space
+- [x] Raster-aware figure extraction (20 body pages carry embedded images; the appendix
+      range had none)
+- [x] Chapter section tree from the paragraph-number hierarchy
+- [x] 300.2 Definitions -> glossary JSON
+- [x] Tables + their notes over the body range
+- [x] Validate: bookmark-tree reconciliation, table/figure counts, dangling refs, furniture
+- [x] Write JSON + PNG to CHAPTERS/ and a manifest
+
+## What had to be solved that the appendix run did not face
+
+Five properties of the source, all measured rather than assumed.
+
+1. **PyMuPDF reports text and drawings in unrotated page space whatever the page /Rotate
+   value says** - only `page.rect` changes. So on the seven landscape sheets the printed
+   horizontal rules arrive as tall thin vertical rectangles and the rule-grid table engine
+   finds nothing at all: Table 302.3.5-1 came back with zero rule rows. `rotate.UprightPage`
+   turns the coordinates back (`upright_x = page_height - y`, `upright_y = x`, measured on
+   idx 120) and every engine then sees an ordinary page. Rendering is the exception - it
+   already honours /Rotate, and MuPDF rotated space proved to be exactly this upright space,
+   checked by clipping to a caption bbox and getting that caption back - so the clip passes
+   through untouched. Supplying a correcting matrix produced figures lying on their side.
+2. **The running head and folio do not turn with the table**, so on a landscape sheet they
+   bound the content in x rather than in y. The content band is carried on the page as a box.
+3. **Twenty body pages carry the figure as an embedded raster image** and have an empty
+   drawing list, where the whole appendix range has no raster images at all. Both sources are
+   unioned, and the render dpi is raised to what the placed image actually holds, capped at
+   600: Figure 328.4.2-1 is 3,892 px across a 468 pt box, so the appendices' 300 dpi would
+   have thrown away more than half of it.
+4. **Headings are set run-in** - "326.1.1 Listed Piping Components." in bold, the requirement
+   continuing in roman on the same line. A whole-line font vote calls the entire line a
+   heading, so the heading swallowed the first words of the text and the paragraph began
+   "dards for piping components ...". Characters are now tagged with their span font and the
+   line is split at the boundary.
+5. **Group banners are set in the same bold face as the column labels.** Table 326.1.1-1
+   sorts its standards under "Bolting", "Metallic Fittings, Valves, and Flanges" and so on,
+   with a rule above and below each. The appendix head/body rule walked into the data and
+   reclassified seven real rows as header. The split is now the last rule with nothing but
+   bold above it, and the banners are kept as a `group` field on the rows they head.
+
+Header labels also had to be placed geometrically rather than by column index. ASME writes
+"Greater Material Thickness" once, centred over the mm and in. columns, and "Component
+Temperature, Ti, degC (degF)" once over sixteen. Placed by midpoint, Table 302.3.5-1 came out
+with a column called "Component 593 (1,100)" while fourteen other temperature columns carried
+none of it. Each run is now assigned to every column it physically overlaps: a run over one
+column is that column's label, a run over several is a banner recorded against all of them.
+
+## Bugs found by validation, not by reading the output
+
+Three of these deleted content silently - none of them failed, and all produced
+plausible-looking output.
+
+- **Any two rules on a page were treated as one table.** Page 89 carries the closing rule of
+  a table continued from the page before and, 466 pt lower, the rule under an unruled inline
+  list, with two columns of prose between them. They were glued into one region covering the
+  whole left column, the prose pass was told to skip it, and **para. 323.3 disappeared from
+  the Code entirely**. Only the bookmark reconciliation caught it (637 of 638). Fixing it
+  also recovered 60 paragraphs in Chapter III and 13 in Chapter II being lost the same way.
+- **Figure artwork was clustered by vertical proximity alone**, which is safe on a page that
+  is nothing but a figure - all the appendices contain. Page 57 sets the miter-bend image in
+  the left column, and vertical clustering pulled in vector strokes from the right column at
+  the same height, stretching the clip from x 271 to x 518 and taking **para. 304.2.3 Miter
+  Bends** with it. Clustering is now two-dimensional.
+- **The figure clip rect was kept only for multi-sheet figures**, so all 39 single-sheet
+  figures were never excluded from the prose pass at all, and their captions and internal
+  callouts came through as stray sections of the Code.
+- A table caption sits above its first rule and its NOTES below the last, both in the same
+  faces as the surrounding prose, so excluding only the ruled grid dropped a table's notes
+  into the running text of the paragraph that followed.
+- Continuation lines in a key column are not distinguishable by their text: "N088xx and
+  N066xx nickel" is a continuation though it opens with a capital, and "Other materials
+  [Note (9)]" is a row of its own though it carries no values at all. ASME hangs the
+  continuations by exactly one em (x=66.9 vs 74.9 in Table 302.3.5-1); the indent is the
+  signal. Before this, Table 302.3.5-1 had 17 rows instead of its printed 7.
+- The de-hyphenator was applied to paragraph text but not to headings, leaving twelve
+  headings reading "Reinforcement of Welded Branch Connec- tions".
+
+## Review - B31.3 Chapters I-X (measured)
+
+**119 files, 13 MB** in `CHAPTERS/`: 78 JSON + 41 PNG. APPEX was not touched - its files were
+last written at 10:58, before this run began.
+
+| Ch | Sections | Paragraphs | Equations | Words | Tables | Rows | Figures |
+|---|---|---|---|---|---|---|---|
+| I | 10 | 66 | 0 | 1,717 | 1 | 19 | 1 |
+| II | 242 | 816 | 42 | 19,354 | 8 | 36 | 8 |
+| III | 24 | 128 | 0 | 3,519 | 6 | 122 | 2 |
+| IV | 9 | 8 | 0 | 237 | 1 | 96 | 0 |
+| V | 90 | 211 | 6 | 6,190 | 4 | 55 | 13 |
+| VI | 89 | 251 | 2 | 7,006 | 2 | 22 | 1 |
+| VII | 250 | 460 | 5 | 9,461 | 5 | 92 | 5 |
+| VIII | 190 | 179 | 0 | 2,658 | 0 | 0 | 0 |
+| IX | 308 | 607 | 13 | 12,512 | 7 | 73 | 3 |
+| X | 87 | 140 | 0 | 2,390 | 0 | 0 | 6 |
+| **All** | **1,299** | **2,866** | **68** | **65,044** | **34** | **515** | **39** |
+
+Plus **189 definitions** (para. 300.2, one entry per term with its acronym and cross
+references), **170 table note items** and **26 figure note items**.
+
+Para. 300.2 is not repeated as prose. Read as running text the glossary came out as fifty-odd
+paragraphs of terms welded together, with the italic terms mistaken for list markers - a worse
+copy of what `definitions.json` holds properly structured - so the section keeps its lead-in
+and its footnote and points at that file.
+
+### Verification performed
+
+- **Every one of the 638 paragraph numbers in the PDF bookmark tree is present in the section
+  trees, and every one is on the page the book says it is** (0 off by more than a page). The
+  bookmark tree is independent evidence: it was not used to build the trees.
+- **Figures: 39 extracted against the 39 in the Code's own List of Figures** - none missing,
+  none unexpected. Two (304.3.3-1, 304.3.4-1) are printed over two sheets, hence 41 PNGs.
+- **Tables: all 33 entries in the List of Tables are present**, plus the Criterion Value Notes
+  sheet for Table 341.3.2-1, which is printed but not listed. Nothing unexpected.
+- **Spot-checks against the printed pages.** Table 302.3.5-1 comes out as the 7 steel groups
+  printed, CrMo reading 1 / 0.95 / 0.91 / 0.86 / 0.82 across 427-538 degC and the austenitic
+  row holding 1 at 816 degC; Table 330.1.1-1 P-No. 1 carbon steel <=25 mm gives 10 degC
+  (50 degF); Table 341.3.2-1 lists the 10 printed imperfections with Crack = A in all ten weld
+  columns, visual and radiography both required; Criterion A = "Zero (no evident
+  imperfection)".
+- **0 dangling file references**, and every table `row_count` matches both its own `rows` and
+  the manifest.
+- **No page furniture** in any output: no running heads, no printed folios, no revision change
+  markers, no "(Cont'd)" - including in the group banners, which repeat with that tag on
+  continuation pages.
+- **1 residual line-break hyphen, and it is correct as printed:** "instruments as
+  temperature- or pressure-responsive devices", a suspended compound.
+- Figure renders checked by eye: Figure 304.3.3-1 comes out upright, complete and at 600 dpi
+  with its caption and every callout, on a sheet set landscape.
+
+Not extracted: publisher front matter (Contents, Foreword, committee roster, Correspondence,
+Introduction, Summary of Changes, the redesignation list) and the INDEX - front and back
+matter, per the scope decision. The source has no logos or watermarks in its text layer.
+
+---
+
+# Task 6: ANSI/AISC 360-16 - Specification + Commentary
+
+**Source:** `(local)\...\0-STANDARDS\ASCI\AISC 360-16.pdf` (10.1 MB, 680 pages)
+**Destination:** `Engineering_Hub\database\asci\asci_360\` (Daniel's path, given mid-run;
+short snake_case file names, longest 40 characters)
+**Scope:** technical content only - front matter (idx 0-26), the blank leaf, the back cover
+and page furniture excluded.
+
+## Decisions (confirmed with Daniel, 2026-09-06)
+
+- **Commentary is in scope** (idx 310-675), filed under `commentary/`.
+- **Equations: PNG + LaTeX transcription.** The text layer is unusable for maths, so every
+  numbered equation is rendered and transcribed by reading the image.
+- **Tables: cell grid where the rules give one unambiguously, PNG always.**
+- Path and naming per Daniel: `asci/asci_360`, short snake_case.
+
+## Source facts established
+
+- 680 pages, native text layer, no OCR. Page box 432 x 648 pt, **single column**.
+- Frame constant: folio + running head y < 26, publisher two-liner y > 620.
+- Fonts carry the structure: `HelveticaNeue-Bold` 14 = part title, `Times-Bold` 10 =
+  Specification section head, **`Times-Bold` 9.5 = Commentary section head** (the same face
+  as a User Note, so the User Note test has to come first), `Times-Roman` 9.5 = body,
+  `Times-Italic` 9.0 = figure caption (used by nothing else), `Helvetica-Bold` 13-14 =
+  table caption, `Symbol` 9.5 = maths.
+- **9 raster images in 620 pages of body, none of them a figure.** All 120 figures are
+  vector line art.
+
+## What had to be solved
+
+1. **PyMuPDF's box metrics lie on maths pages.** The one-word block `where` on p136 is
+   reported 33 pt tall. Every equation decision is made on boxes rebuilt from each span's
+   baseline origin instead; a block-level band fuses an equation with its surrounding prose.
+2. **Maths is typeset glyph by glyph.** Equation F2-5 comes back as `L r E F p y y = 1 76 .`
+   Equations are located by their printed tag - the one part always plain text, always
+   right-set, always vertically centred - then rendered and transcribed.
+3. **Bands grow text and rules alternately.** A fraction's denominator sits further below
+   the numerator than the adjacency threshold allows; it is the bar between them that
+   brings the band down far enough. Growing once left F4-12 rendered without its denominator.
+4. **A maths fragment sharing a baseline row with prose is a where-list term, not part of
+   the equation.** `a_c` beside "= convective heat transfer coefficient" is a definition.
+5. **Subscripts set tight against a variable are not words.** `Fybitbi` and `Pstory` read as
+   prose to a naive lowercase-run test, which dropped G6-1, K3-11, K3-12, K4-8 and A-8-8.
+6. **An equation tag always carries a digit.** Prose ending `..., kip-in. (N-mm)` was being
+   read as equation `(N-mm)` on four pages.
+7. **Vector art is not bounded by `get_drawings()`.** The full-page chart on p251 returns 15
+   rects spanning x -27..456. Figures render a generous band and are trimmed to their ink.
+8. **The Symbols list is set two ways.** Most pages put the symbol at x=42 and the
+   definition at x=90; the rest run both on one line separated by literal spaces. And
+   **where a definition wraps, its first line is set up to 3.4 pt ABOVE its symbol** - so a
+   reading-order pairing silently gives Zx the definition of Zy. Each definition line is
+   assigned to the last symbol at or near its own baseline. That fix took the list from 424
+   entries with Zx wrong to 436 with every spot-check right.
+9. **Rows separated by leading, not by a rule.** Table J3.1's nine bolt sizes live in one
+   ruled band. Bands are split on shared baselines, but only where at least two columns
+   carry the same number of lines and the leading is regular - the modal line count, not the
+   maximum, because a column of stacked fractions prints two lines per data row.
+
+## Review - measured
+
+**805 files, 35 MB.** 52 part documents (14 chapters, 8 appendices, 26 commentary parts,
+4 supplements) + 120 figure PNGs + 89 table PNGs + 544 equation PNGs + `document.json`,
+`toc.json` and three indexes.
+
+| | Count |
+|---|---|
+| Words of prose | 212,972 |
+| Numbered equations | 544, **all 544 with LaTeX** |
+| Figures | 120, all rendered, 0 dangling references |
+| Tables | 89 rendered; 73 gridded, 756 data rows |
+| Symbols / glossary / abbreviations | 436 / 272 / 46 typed entries |
+
+### Verification performed
+
+- **Text coverage 98.3%** of every content block on every in-scope page, measured
+  character for character against the source. The shortfall is `sup_symbols` at 70%, which
+  is the dot leaders being dropped (~12,000 characters of `. . . .`), not content.
+- **Validator: 0 failures** across 18 checks - one file per part, every file wraps
+  source + data, no dangling image reference, no page furniture in any record, indexes
+  match the records, every equation carries LaTeX and an image, figure ids unique per page,
+  chapter section numbers match their chapter letter, part page ranges tile the body with
+  no gap or overlap.
+- **Equations cross-checked against an independent reading.** 56 are simple enough to
+  rebuild from glyph geometry alone; **36 agree exactly** and are marked
+  `latex_confirmed_by_geometry`. All 20 disagreements were checked one by one and are the
+  geometry reader's blind spots, not transcription errors: it cannot see a radical stroke
+  (I8-1, J8-2, A-1-3, C-B3-1, C-I6-3), it reads the prime glyph as `¢` (I3-1a..I3-2b,
+  J3-2), and it returns `05.` for `0.5` because the decimal point is drawn out of order.
+- **Spot-checks against the printed pages:** Table J3.1 bolt pretension 1/2 in. -> 12/15
+  kips, 1 in. -> 51/64/90, 1-1/2 in. -> 118/148; Table J3.2 A307 -> 45 (310) ksi tension,
+  27 (186) shear; Table E7.1 c1/c2 = 0.18/1.31, 0.20/1.38, 0.22/1.49; symbols Fy, Fu, Cb,
+  Lb, Lp, Lr, Z, Zx, Zy all correctly paired with their definitions and clauses.
+- **Known limits recorded in every file's `source.note` and in `document.json`:**
+  16 tables have no lattice and 27 more carry line art in their cells, so they are
+  image + text only; 37 gridded tables still hold at least one cell of stacked lines and
+  say so via `grid_rows_merged`; 2 grids are lossy (J3.5/J3.5M, a stacked fraction
+  straddling a column rule); a value printed only inside a figure is not in the text; and
+  the LaTeX is a transcription - the one interpreted field in the extraction - with the raw
+  glyph run kept beside it as `glyph_order_text`.
+
+Not extracted: cover, copyright page, preface, table of contents, running heads, printed
+folios, the publisher footer, the blank leaf and the back cover.
