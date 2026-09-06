@@ -312,3 +312,168 @@ than Customary-specific:
 
 Not extracted: publisher front/back matter and the ENDNOTES page (idx 1530), matching the
 Metric run's scope.
+
+
+---
+
+# Task 5: ASME B31.3-2024 — remaining appendices (E through Z)
+
+**Source:** `(local)\...\B31- PRESSURE PIPING\ASME B31.3 2024 Process Piping.pdf`
+**Destination:** `.../resources/ASME B31/ASME B31.3/APPEX/` — alongside the existing
+`appendix_a`, `appendix_b`, `appendix_c`, which are **not** touched or re-extracted.
+**Scope:** technical content only — no front/back matter, running heads, folios, change
+markers, logos or watermarks. INDEX and NOTES FOR INDEX (idx 573-593) are back matter, excluded.
+
+## Source facts established
+
+- 594 pages. Appendices E-Z occupy PDF idx 462-572 (111 pages), ending where INDEX starts (573).
+- **No raster images anywhere in this range** (`get_images()` empty on all 111 pages). Every
+  figure is vector line-art, so figures must be *rendered* from a clip rect, not extracted.
+- Page frame is constant: running head `ASME B31.3-2024` at y=39.3, printed folio at y=745.1.
+  Content band is y in (50, 735).
+- Two-column prose; left column starts x=54 or x=72 (alternating recto/verso), right column
+  x=306/324. Column split is clean at x=306.
+- Fonts carry the structure: `Ronnia-Bold` = headings (17.3 pt appendix title, 10.6/9.5 pt
+  section heads), `Cambria` 9.6 = body prose, `Cambria` 8.0 = table body,
+  `Cambria-Italic` = defined terms/variables, `STIXGeneral`/`ArnoPro` = math glyphs.
+- **Justified lines drop their space glyphs** (e.g. `S302.8 CodeCompliance-SatisfyingtheIntentof`).
+  Character gaps are strictly bimodal: 0.00 pt inside a word, ~1.40 pt at a word break, so word
+  boundaries are recoverable from character positions. Threshold used: max(0.45, 0.055 x size).
+- Table K-1 / K-1C are **two-page spreads** joined by `Line No.`, same as A-1/A-4.
+- Figure M-1 is landscape (`rotation=90`).
+- `d24TH` (the U+00F0/U+00DE revision marker) appears throughout -> stripped, not content.
+
+## Appendix inventory (0-based idx)
+
+| Appx | idx | pg | Content |
+|---|---|---|---|
+| E | 462-466 | 5 | Reference Standards - publisher-grouped specification list |
+| F | 467-474 | 8 | Guidance and Precautionary Considerations - prose |
+| G | 475-476 | 2 | Safeguarding - prose |
+| H | 477-484 | 8 | Sample Calculations for Branch Reinforcement - prose + 2 full-page figures |
+| J | 485-501 | 17 | Nomenclature - Symbol/Definition table |
+| K | 502-531 | 30 | Allowable Stresses for High Pressure Piping - spec index, notes, K-1 + K-1C spreads |
+| L | 532-534 | 3 | Aluminum Alloy Pipe Flanges - prose + 3 tables |
+| M | 535-536 | 2 | Guide to Classifying Fluid Services - prose + Figure M-1 (landscape flowchart) |
+| N | 537-540 | 4 | Application of ASME B31.3 Internationally - prose |
+| Q | 541 | 1 | Quality System Program - prose |
+| R | 542-544 | 3 | Alternative Ultrasonic Acceptance Criteria - prose + Figure R307-1 + 2 tables |
+| S | 545-559 | 15 | Piping System Stress Analysis Examples - prose, equations, 3 figures, ~14 tables |
+| V | 560-562 | 3 | Allowable Variations in Elevated Temperature Service - prose + equations |
+| W | 563-567 | 5 | High-Cycle Fatigue Assessment - prose + 5 tables |
+| X | 568-571 | 4 | Metallic Bellows Expansion Joints - prose |
+| Z | 572 | 1 | Preparation of Technical Inquiries - prose |
+
+## Decisions (confirmed with user)
+
+- **Figures render to PNG** next to the JSON, referenced by `figure_image`, with caption and
+  page recorded. Same rule as the BPVC II-D runs. Only technical figures; no page furniture.
+- **Worked calculations captured in full** - narrative prose, every printed equation line as
+  text, and all result tables typed as data. Equation lines stay strings: the PDF text layer
+  gives characters, not math structure, so anything else would be interpretation.
+- One JSON per table; prose appendices get a section-tree JSON. Folder per appendix.
+- SI / U.S. Customary companions (K-1 / K-1C) kept separate, cross-referenced, never merged.
+- The existing `asme_b31_3_2024_index.json` is extended with the new appendices, A/B/C entries
+  left byte-identical.
+
+## Steps
+
+- [x] Build shared core: line reconstruction with space restoration, column split, furniture strip
+- [x] Prose engine: heading hierarchy from fonts, paragraph joining, list-item structure
+- [x] Appendix E (standards list), J (nomenclature), K (spec index + notes + K-1/K-1C spreads)
+- [x] Table engines for L, R, S, W
+- [x] Equation-line capture for H, S, V, W
+- [x] Figure rendering: H301-1, H311-1, M-1, R307-1, S301.1-1, S302.1-1, S303.1-1
+- [x] Validate: line-number continuity, SI/USC parity, null ratios, spot-checks vs the PDF
+- [x] Write JSON + PNG to destination, extend the index manifest
+
+## What had to be solved that the A/B/C run did not face
+
+Appendices A, B and C are pure tables. E-Z are mostly prose, maths and line art, and five
+source facts had to be handled before any of it came out right.
+
+1. **The rules give the column grid.** These tables are ruled horizontally only, but each
+   rule is emitted as one segment per column, so the rule with the most segments *is* the
+   column grid. That replaced the whitespace-gap column detection the A/B/C run needed and is
+   considerably safer. Side-by-side tables (R308-1 next to R308-2) are separated by the gaps
+   in those rules; stacked tables are separated by their printed captions, because rule
+   spacing alone cannot tell a tall table from two short ones.
+2. **Two opposite space failures on justified lines.** Some lines drop the space glyph and
+   push the words apart by ~1.4 pt (`CodeCompliance`); others keep the spaces but track every
+   letter out by ~0.6 pt, where a fixed threshold splits every word into letters. The
+   threshold is therefore derived per line from that line's own median letter gap. A third
+   variant - fully tracked-out text with a real space between every character, used for the
+   URLs in Appendix N - is detected by its space ratio and collapsed.
+3. **The minus signs are not in the text layer.** ASME draws them as short vector strokes, so
+   `(2.5)(7.16 − 2.5)` arrives as `(2.5)(7.16` and `2.5)`. Strokes falling inside an equation
+   band are restored as operator tokens; without that the equations read as though the
+   subtraction were not there. The recovered equations then check out arithmetically, which
+   is the strongest evidence the maths extraction is right: `d1 = [114.3 − (2)(5.27 − 2.5)]
+   /sin 90 deg = 108.8 mm` reproduces the value printed in Figure H301-1.
+4. **Displayed maths is a scatter of positioned glyph runs** - numerator, fraction rule,
+   denominator, subscripts, plus ordinary Cambria runs for the units. Equations are found
+   geometrically (a maths font locates a band; everything short and indented inside that band
+   belongs to it) and linearised into reading order. They are stored as strings: the text
+   layer carries positions, not structure, and inventing structure could change what an
+   equation says.
+5. **Line-break hyphens vs real compounds.** `selec- tively` must join, `tongue-and- groove`
+   must not, and `low- and high-cycle` must stay as printed. Both candidate forms are tested
+   against a vocabulary built from the whole document, so the code's own usage decides -
+   which is how `nondestructive` and `postweld` come out unhyphenated.
+
+Three extraction bugs were found by validation rather than by inspection, and are worth
+recording because two of them silently *deleted* data:
+
+- **A folio filter was eating table rows.** Stripping "any 2-4 digit number below y=700" as a
+  printed page number removed the whole last row of a table whenever it fell that low - it
+  cost Table K-1 line 59 and K-1C line 56, both of which are entirely numeric. The printed
+  folio sits at y=745, already outside the content band, so the rule was never needed.
+- **Fraction bars were being read as table rules**, which merged Table W302.1-4 with the
+  equations below it and pulled 34 rows of maths fragments into the table. Table rules span
+  the table; anything under 100 pt wide is maths.
+- **The head/body split is not a fixed rule index.** Heads run to one, two or three tiers, so
+  the split is taken as the first rule below the last bold label instead.
+
+## Review - B31.3 Appendices E-Z (measured)
+
+**55 files, 5.5 MB** written into the existing `APPEX/` folder: 48 JSON + 7 PNG, in 16 new
+`appendix_*` folders. Appendices A, B and C were not touched, and their entries in the index
+manifest are byte-identical to before (verified by comparison against a pre-run copy).
+
+| Output | Count |
+|---|---|
+| Tables | 29 files, 546 data rows |
+| Figures | 7 rendered at 300 dpi |
+| Prose / list documents | 19 files - 219 sections, 25,337 words, 180 equations |
+| Nomenclature (J) | 211 symbols, each with units, paragraph, table/figure and equation refs |
+| Reference standards (E) | 446 standards under 23 publishers, plus 21 organizations |
+| Specification Index (K) | 35 specifications |
+| Tables K-1 / K-1C | 150 rows each |
+
+### Verification performed
+
+- **Line-number continuity: 0 problems.** Every one of the 13 two-page spreads of Tables K-1
+  and K-1C runs contiguously with no gaps or duplicates, and every row carries stress values.
+- **SI / U.S. Customary parity: K-1 = K-1C = 150 rows**, and the editions cross-check as unit
+  conversions of each other. Line 1 (A53 Gr. B seamless pipe) reads 415 MPa / 240 MPa /
+  371°C / 212 MPa at 40°C in K-1 and 60 ksi / 35 ksi / 700°F / 30.7 ksi at 100°F in K-1C -
+  the same material to three figures in both unit systems.
+- **The worked calculations validate arithmetically.** In H301 Example 1,
+  `L4 = (2.5)(7.16 − 2.5) = 11.65 mm`, `d1 = 108.8 mm` and `d2 = 61.9 mm` all recompute from
+  their own operands, and 108.8 mm is the value printed in Figure H301-1.
+- **Table inventory matches the source contents list exactly** - 17 tables in Appendix S,
+  5 in W, 3 in L, 2 in R, 2 in K. Ruled regions inside line-art figures were being picked up
+  as tables at first; a region now counts as a table only if the caption above it says
+  "Table".
+- **0 dangling references:** every `figure_image` and every `file` named in the index
+  manifest resolves to a file on disk, and every table's `row_count` matches its `rows`.
+- **1 residual line-break hyphen, and it is correct as printed:** Appendix F FU315 reads
+  "steam- (or sterilize-) in-place (SIP)", a suspended compound, not a missed join.
+- **Figures checked by eye:** Figure M-1 renders complete and upright (it is set landscape on
+  a portrait sheet, so the clip is computed in unrotated page space and the rotation
+  reapplied at render time), and Figure H301-1 renders all four example illustrations.
+
+Not extracted: the INDEX and NOTES FOR INDEX (pp. 574-594), which are back matter, and
+publisher front matter - matching the scope of the A/B/C run. No page furniture, change
+markers, logos or watermarks appear in any output; the source has no raster images at all in
+this range, so nothing decorative could be picked up.
