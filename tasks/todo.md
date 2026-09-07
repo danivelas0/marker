@@ -759,3 +759,237 @@ and page furniture excluded.
 
 Not extracted: cover, copyright page, preface, table of contents, running heads, printed
 folios, the publisher footer, the blank leaf and the back cover.
+
+---
+
+# Task 7: ANSI/AISC 360-16 re-run from the five split PDFs, filed to Engineering_Hub
+
+**Source:** `(local)\...\0-STANDARDS\ASCI\AISC 360-16_p1-p150.pdf` and the four further
+splits (`p151-p300`, `p301-p450`, `p451-p600`, `p601-p680`).
+**Destination:** `Engineering_Hub\database\asci\asci_360\` - filed this time; Task 6 built
+the extraction but never copied it out of the scratchpad, so the folder was empty.
+
+## Source facts established
+
+- The five splits concatenate to exactly 680 pages and are **page-for-page identical** to
+  the single-file `AISC 360-16.pdf`: 0 mismatches over all 680 pages comparing every span's
+  font, size, origin and text, and 0 mismatches in `get_drawings()` counts.
+- **Native text layer on every page, 0 raster images on the pages sampled. No OCR was
+  needed and none was used** - so Ollama was not installed. A local VLM would have replaced
+  a lossless text layer with a guess.
+
+## What had to be solved
+
+**Splitting re-roots orphaned bookmarks.** All 176 bookmarks survive (69+72+20+9+6) with
+their titles and pages intact, but `insert_pdf` carries no outline at all, and each split
+promotes to level 1 any entry whose parent stayed behind in an earlier file. The part map
+is read from the bookmark tree, so `aisc_parts.parts()` died on `StopIteration` looking for
+the Commentary node. Two rules restore the real depth: only a named part (Chapter A-N,
+Appendix 1-8, Commentary, Symbols, Glossary, Abbreviations, References, Index, Metric
+Conversion Factors) is top level, and nothing after the Commentary node is. That
+reconstruction was then checked against the original PDF's outline as an oracle - **176/176
+entries identical, level for level**.
+
+## Steps
+
+1. `merge_splits.py` - concatenate the five splits in printed-page order, re-base each
+   split's TOC on its page offset, repair the orphaned levels, save `aisc_360_16_merged.pdf`.
+2. Repoint `aisc_lib.PDF_PATH` at the merged file; record the five split names in
+   `document.source_pdf` with a `source_note`.
+3. `aisc_build.py` -> `aisc_tab.py` as of 16:21, which is *newer* than the output Task 6
+   left behind: grids now carry `ruled_bands`, `bands_split_on_leading` and
+   `grid_rows_merged`, and empty cells are `null` rather than `""`.
+4. `validate.py`, `crosscheck.py`, copy to the destination, re-validate in place.
+
+## Review - measured
+
+**810 files, 35 MB**, in `chapters/` (14), `appendices/` (8), `commentary/` (26),
+`supplements/` (4), `figures/` (120 PNG), `tables/` (89 PNG), `equations/` (544 PNG),
+plus `document.json`, `toc.json` and three indexes. Longest file name **40 characters**,
+all `snake_case`.
+
+| | Count |
+|---|---|
+| Words of prose | 212,972 |
+| Numbered equations | 544, all 544 with LaTeX |
+| Figures | 120, all rendered, 0 dangling references |
+| Tables | 89 rendered; 73 gridded, 37 flagged `grid_rows_merged`, 9 lossy |
+| Symbols / glossary / abbreviations | 436 / 272 / 46 typed entries |
+
+### Verification performed
+
+- **Validator: 0 failures across 18 checks**, run twice - on the build output and again on
+  the filed copy in `Engineering_Hub`.
+- **Equation cross-check reproduces Task 6 exactly:** 56 geometry-checkable, 36 agree, 20
+  differ, and the 20 are the geometry reader's known blind spots (it cannot see a radical
+  stroke, reads the prime glyph as `¢`).
+- **Payload compared against Task 6's output part by part:** all 52 parts present, 30
+  byte-identical, and every one of the 22 differences is confined to the `tables` field and
+  is the newer grid provenance, not different content.
+
+### Known limit, unchanged and worth stating
+
+**Figures are image + caption + reference only.** All 120 are vector line art rendered to
+PNG with `figure_id`, caption, page and part; a value printed *inside* a figure is not in
+the JSON. 24 captions read as data-bearing, of which only 4 are numbers a designer reads
+off the page rather than commentary illustration: A-2.1 and A-2.2 (ponding flexibility
+coefficients) and C-A-7.1 and C-A-7.2 (the alignment charts). Digitising those curves is a
+separate job and was not attempted - a guessed curve is worse than an image.
+
+Not extracted: cover, copyright page, preface, table of contents, running heads, printed
+folios, the publisher footer, the blank leaf and the back cover. No trademarks, logos or
+icons - the 9 raster images in the body are all page furniture and none is a figure.
+
+---
+
+# Task 8: ANSI/AISC 360-22 - Specification + Commentary
+
+**Source:** `(local)\...\0-STANDARDS\ASCI\AISC 360-22.pdf` (106 MB, 780 pages)
+**Destination:** `Engineering_Hub\database\aisc\aisc_360_2022\`
+(note: Daniel renamed `database\asci` -> `database\aisc` between runs; the 360-16
+extraction from Task 7 now lives at `aisc\aisc_360\`)
+
+## Source facts established
+
+- 780 pages. Page box 432 x 648 pt on 769 of them; 3 odd sizes and **1 page rotated 270**.
+- **Real embedded text layer** (`TimesLTStd-*`, `HelveticaNeueLTPro-*`, `SymbolMT`),
+  1.96 M characters, no page under 50 characters. **Not an OCR layer - no OCR is needed
+  and Ollama is not used.** Running a VLM over exact text would replace it with a guess.
+- **Every page also carries a full-page JPX raster** (2400 x 3600 = ~400 dpi) covering the
+  whole page box, 3 kB on a text-only page up to 278 kB on a figure page.
+- **Only 8 of 745 body pages have any vector geometry at all.** Every table rule, every
+  figure line and every fraction bar lives in that raster. This is the fundamental
+  difference from 360-16, where all 120 figures were vector line art.
+- No running head and no printed folio in the text layer (0 of 99 sampled pages carry a
+  `16.1-nnn` folio), so the only page furniture is the two-line footer at y=592.8 /
+  y=600.8: 'Specification for Structural Steel Buildings, August 1, 2022' /
+  'American Institute of Steel Construction'.
+- Font -> role map (all changed from 360-16): `HelveticaNeueLTPro-Bd` 14 = part title,
+  `TimesLTStd-Bold` 10 = section head, `TimesLTStd-Bold` 9.5 = User Note,
+  `TimesLTStd-Roman` 9.5 = body, `TimesLTStd-Italic` 9.0 = figure caption,
+  `HelveticaNeueLTPro-Bd` 13.5 = table caption, `SymbolMT` 9.5 = maths.
+- Bookmark tree is intact and well formed: 180 entries, front matter to p32, Symbols p33,
+  Glossary p52, Abbreviations p67, Chapters A-N, Appendices 1-8, Commentary p355 with
+  References p735 and Metric Conversion Factors p777 beneath it.
+- Maths is typeset glyph by glyph again, so the text layer still cannot be read as a line.
+- Counted: **719 right-set equation tags, 131 figure captions, ~112 table captions**
+  (360-16 had 544 / 120 / 89).
+
+## The problem to solve, and the fix
+
+The 360-16 pipeline leans on `get_drawings()` in three places, and all three are empty here:
+table gridding (ruled bands), figure trimming (band trimmed to its ink), and equation band
+growth (the fraction bar is what pulls a band down over its denominator).
+
+**Fix: one `ink` abstraction with a raster implementation.** Render the page at 200 dpi to
+greyscale, threshold to an ink mask, and read geometry off that wherever the 2016 code read
+it off vectors. A rule is a row (or column) whose ink both covers >20% of the span and
+contains a contiguous run >25% of it - the contiguous test is what separates a rule from a
+dense line of text.
+
+**Proven on Table D3.1 (idx 101): 11 horizontal and 5 vertical rules, and 0 of each on a
+prose page.** Vertical rules are something the 2016 vector path never recovered, so column
+boundaries can come from the real lattice instead of being inferred from text gaps.
+
+## Steps
+
+- [ ] Port `aisc_lib` constants: fonts, frame band, footer marks, body range, rotated page
+- [ ] Add the raster `ink` module; replace the three `get_drawings()` call sites
+- [ ] Re-derive the part map from the 360-22 bookmark tree
+- [ ] Prose, sections, User Notes, Symbols/Glossary/Abbreviations lists
+- [ ] Tables: lattice from raster rules, cells from text within the lattice, PNG always
+- [ ] Figures: caption-anchored bands trimmed to raster ink, PNG + caption + references
+- [ ] Equations: locate by printed tag, render PNG, transcribe to LaTeX
+- [ ] Validate, cross-check, file to the destination, re-validate in place
+
+## What had to be solved (Task 8)
+
+1. **The delivered PDF is defective: its graphics layer is misregistered.** The file is two
+   layers - a text layer with every glyph, and a full-page raster carrying what the text
+   layer cannot express: the radicals and fraction bars of the maths, and the grey tint
+   panels behind the User Notes. They do not line up. Equation F2-5 prints as `E` over
+   `F_y` with no radical and no bar, while a stray radical is drawn 34 pt away across the
+   prose beneath. **PDFium renders it identically to PyMuPDF, so it is the document, not
+   the reader.** The displacement is a pure translation and the tint panels measure it:
+   comparing each panel's CENTRE with the centre of the text it encloses, over 315 panels,
+   gives **dx +34.28, dy -34.06 pt, sd 1.78**. Panel *edges* give -27.9 and are wrong - the
+   padding is not symmetric about the text's ascender-to-descender box. Checked against
+   ground truth: F2-5 stacks E (baseline 229.9) over F_y (243.5), so its bar belongs near
+   y=233 and its vinculum just above 223; the raster bars sit at 266.4 and 253.4, and
+   -34.06 puts them at 232.3 and 219.3. `repair_layer.py` rewrites the image placement
+   matrix on 779 of 780 pages before anything is extracted. Residual over the same panels:
+   **0.00 pt**. The offset is scaled by the page box for the 12 pages that are not
+   432 x 648 and the one that is landscape.
+2. **No vector geometry to grid tables with.** Only 8 of 745 body pages return a drawing,
+   and `find_tables(strategy="lines")` reads `get_drawings()`. Rules are detected in the
+   raster instead and drawn onto a throwaway copy of the page as real vector lines, so
+   PyMuPDF's table finder works unchanged. Nothing rendered for output comes from that
+   copy. This recovers **vertical** rules, which the 2016 vector path never had - 97 of 112
+   tables gridded here against 73 of 89 in 360-16.
+3. **The frame is not constant.** 12 pages are not 432 x 648 and one is rotated 270, where
+   PyMuPDF reports text in unrotated landscape space. An absolute footer y is wrong on all
+   of them, so each page's footer is found from its own text; all 745 carry it.
+4. **A fraction bar had to be followed as a bar, not as ink.** Growing an equation band
+   towards any adjacent ink walks into the next equation, because on a page of stacked
+   display maths there is nearly always ink in the next sliver.
+5. **A condition line was read as part of the equation above it.** '(a) When L_c/r <= ...'
+   never reached the prose test because of its leading enumerator, and a 36 pt scalable
+   parenthesis - line box 44 pt deep - then bridged E3-2 into the next condition. Two
+   fixes: strip the enumerator before the prose test, and disqualify any fragment sharing
+   rows with prose regardless of how far across the measure it sits.
+6. **17 highlighter annotations on 7 pages** - someone's markup, not the standard - were
+   being rendered into the output images; a yellow Ink stroke sits squarely over Equation
+   J4-3. All rendering and the ink mask now pass `annots=False`.
+7. **A unit was read as an equation.** 'kip-in.2 (N-mm2)' became equation `N-mm2`; the
+   360-16 digit test passed it because of the superscript. Every printed AISC equation
+   number ends in a digit-initial part; a unit does not.
+
+## Review - Task 8 (measured)
+
+**903 files, 59 MB** in `aisc\aisc_360_2022\`: 52 part documents (14 chapters, 8 appendices,
+27 commentary parts, 3 supplements) + 129 figure PNGs + 112 table PNGs + 605 equation PNGs
++ `document.json`, `toc.json` and three indexes. Longest file name **41 characters**, all
+`snake_case`.
+
+| | 360-22 | (360-16 for comparison) |
+|---|---|---|
+| Words of prose | 250,675 | 212,972 |
+| Numbered equations | 607, **all 607 with LaTeX** | 544 |
+| Figures | 129 | 120 |
+| Tables | 112 rendered, **97 gridded** | 89 / 73 |
+| Symbols / glossary / abbreviations | 542 / 291 / 47 | 436 / 272 / 46 |
+
+### Verification performed
+
+- **Validator: 0 failures across 18 checks**, run on the build and again on the filed copy.
+- **Equation cross-check: 125 geometry-checkable, 93 agree, 32 differ - and all 32 were
+  read one by one and are the geometry reader's blind spots, not transcription errors.**
+  It drops the solidus (I6-1, A-8-4, C-A-6-10 and 11 more), cannot see a radical (I4-1,
+  I8-1, J8-2, K1-7, C-I3-3/4), drops Symbol-font glyphs (alpha in C2-1, A-7-1, A-7-2;
+  epsilon read as 'e' in A-4-2), and returns '05.' for '0.5'.
+- **Spot-checks against the printed pages, edition-correct for 2022:** Table J3.1 bolt
+  pretension 1/2 in. -> 12/15 kips, 5/8 -> 19/24, 3/4 -> 28/35, 7/8 -> 39/49, including the
+  new Group 144 and Group 200 columns; Table J3.2 A307 -> 45 (310) tension, 27 (190) shear,
+  Group 120 -> 90 (620)/54 (370)/68 (470), Group 150 -> 113 (780)/68 (470)/84 (580).
+- **Symbols pairing verified** on the entries that broke the 360-16 run: Zx and Zy take
+  their own definitions, and all five Fy entries carry the right clause.
+- Equations that changed between editions were caught rather than carried over: D5-2 gains
+  C_r, E3-2/E3-4 use L_c/r, and Appendix 2 is a different subject entirely in 2022.
+
+### Known limits, recorded in every file
+
+- **No OCR was used and Ollama was not installed** - the text layer is real embedded type.
+- Figures are image + caption + reference; a value printed inside a figure is not in the
+  JSON.
+- 15 tables have a lossy grid and are flagged; 49 more carry at least one cell of stacked
+  lines and say so via `grid_rows_merged`.
+- Some equations set inside Chapter K's tables render clipped at the foot, because a table
+  cell's text bounds the band; the table image is the complete record for those, and the
+  LaTeX was transcribed from the page.
+- The LaTeX is a transcription - the one interpreted field - with `glyph_order_text` beside
+  it. Where an equation is printed as a continuation of a where-list entry (E3-4, F9-3,
+  I2-5, A-8-5 and others print with no left-hand side), the subject is supplied from the
+  line above and that is visible in `glyph_order_text`.
+
+Not extracted: cover, title page, copyright, dedication, preface, table of contents, the
+publisher footer, and the back matter after Metric Conversion Factors.
